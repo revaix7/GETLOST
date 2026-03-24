@@ -1,0 +1,95 @@
+// Trip calculation engine
+
+export function calculateTrip({ country, transportMode, dailyBudget, planningMode, tripDays }) {
+  const distance = country.tipToTip.distanceKm
+  const mode = transportMode
+
+  if (planningMode === 'route') {
+    // "I have a route" — calculate how many days
+    const minDays = Math.ceil(distance / mode.kmPerDay.max)
+    const maxDays = Math.ceil(distance / mode.kmPerDay.min)
+    const avgDays = Math.round((minDays + maxDays) / 2)
+
+    const dailyTotalCost = mode.dailyCost + (distance / avgDays) * mode.costPerKm + dailyBudget
+    const totalBudget = dailyTotalCost * avgDays
+
+    const difficulty = getDifficulty(mode.difficulty, distance, avgDays)
+    const checkpoints = country.tipToTip.checkpoints
+
+    return {
+      startPoint: country.tipToTip.start.name,
+      endPoint: country.tipToTip.end.name,
+      country: country.name,
+      distance,
+      minDays,
+      maxDays,
+      avgDays,
+      dailyCost: Math.round(dailyTotalCost),
+      totalBudget: Math.round(totalBudget),
+      budgetPerDay: dailyBudget,
+      difficulty,
+      checkpoints,
+      transport: mode,
+      canComplete: true,
+      reachableDistance: distance,
+      reachableCheckpoint: checkpoints[checkpoints.length - 1],
+    }
+  } else {
+    // "I have time" — calculate how far you can get
+    const avgKmPerDay = (mode.kmPerDay.min + mode.kmPerDay.max) / 2
+    const reachableDistance = Math.round(avgKmPerDay * tripDays)
+    const canComplete = reachableDistance >= distance
+
+    // Figure out which checkpoint you'd reach
+    const checkpoints = country.tipToTip.checkpoints
+    const segmentLength = distance / (checkpoints.length - 1)
+    const segmentsReachable = Math.min(
+      Math.floor(reachableDistance / segmentLength),
+      checkpoints.length - 1
+    )
+    const reachableCheckpoint = checkpoints[segmentsReachable]
+    const reachedCheckpoints = checkpoints.slice(0, segmentsReachable + 1)
+
+    const dailyTotalCost = mode.dailyCost + avgKmPerDay * mode.costPerKm + dailyBudget
+    const totalBudget = dailyTotalCost * tripDays
+
+    const difficulty = getDifficulty(mode.difficulty, Math.min(reachableDistance, distance), tripDays)
+
+    return {
+      startPoint: country.tipToTip.start.name,
+      endPoint: country.tipToTip.end.name,
+      country: country.name,
+      distance,
+      minDays: tripDays,
+      maxDays: tripDays,
+      avgDays: tripDays,
+      dailyCost: Math.round(dailyTotalCost),
+      totalBudget: Math.round(totalBudget),
+      budgetPerDay: dailyBudget,
+      difficulty,
+      checkpoints: reachedCheckpoints,
+      allCheckpoints: checkpoints,
+      transport: mode,
+      canComplete,
+      reachableDistance: Math.min(reachableDistance, distance),
+      reachableCheckpoint,
+    }
+  }
+}
+
+function getDifficulty(baseDifficulty, distance, days) {
+  // Scale: 1–5 based on transport difficulty, distance, and pace
+  let score = baseDifficulty
+
+  if (distance > 3000) score += 0.5
+  if (distance > 5000) score += 0.5
+  if (days > 60) score += 0.5
+  if (days > 100) score += 0.5
+
+  score = Math.min(5, Math.max(1, Math.round(score * 10) / 10))
+
+  const labels = ['Easy', 'Moderate', 'Challenging', 'Hard', 'Extreme']
+  const label = labels[Math.min(Math.floor(score) - 1, 4)]
+
+  return { score, label }
+}

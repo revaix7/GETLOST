@@ -1,0 +1,113 @@
+import { useLocation, Link } from 'react-router-dom'
+import { useRef } from 'react'
+
+export default function TripCard() {
+  const location = useLocation()
+  const trip = location.state?.trip
+  const cardRef = useRef(null)
+
+  if (!trip) {
+    return (
+      <div className="trip-card-page empty-state">
+        <h1>No trip to show</h1>
+        <p>Plan a trip first to generate your card.</p>
+        <Link to="/planner" className="cta-button">Go to Planner</Link>
+      </div>
+    )
+  }
+
+  const difficultyBars = () => {
+    const bars = []
+    for (let i = 1; i <= 5; i++) {
+      bars.push(
+        <span
+          key={i}
+          className={`diff-bar ${i <= Math.round(trip.difficulty.score) ? 'filled' : ''}`}
+        />
+      )
+    }
+    return bars
+  }
+
+  const handleShare = async () => {
+    const text = `TIPROUTE Challenge\n${trip.country}: ${trip.startPoint} \u2192 ${trip.endPoint}\n${trip.transport.emoji} ${trip.transport.name} | ${trip.minDays}-${trip.maxDays} days | $${trip.totalBudget}\nDifficulty: ${trip.difficulty.label} (${trip.difficulty.score}/5)\n\nPlan yours at tiproute.app`
+
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: 'TipRoute Challenge', text })
+      } catch {
+        // User cancelled
+      }
+    } else {
+      await navigator.clipboard.writeText(text)
+      alert('Trip card copied to clipboard!')
+    }
+  }
+
+  return (
+    <div className="trip-card-page">
+      <h1>Your Trip Card</h1>
+      <p className="trip-card-subtitle">Challenge accepted?</p>
+
+      <div className="trip-card" ref={cardRef}>
+        <div className="card-header">
+          <span className="card-badge">CHALLENGE</span>
+          <h2 className="card-country">{trip.country}</h2>
+          <p className="card-tagline">Tip-to-Tip</p>
+        </div>
+
+        <div className="card-route">
+          <div className="card-point start">
+            <span className="point-dot">{'\u{1F7E2}'}</span>
+            <span>{trip.startPoint}</span>
+          </div>
+          <div className="card-arrow">{'\u2193'}</div>
+          <div className="card-point end">
+            <span className="point-dot">{'\u{1F534}'}</span>
+            <span>{trip.endPoint}</span>
+          </div>
+        </div>
+
+        <div className="card-stats">
+          <div className="card-stat">
+            <span className="card-stat-value">{trip.distance.toLocaleString()} km</span>
+            <span className="card-stat-label">Distance</span>
+          </div>
+          <div className="card-stat">
+            <span className="card-stat-value">
+              {trip.minDays === trip.maxDays ? trip.minDays : `${trip.minDays}-${trip.maxDays}`}
+            </span>
+            <span className="card-stat-label">Days</span>
+          </div>
+          <div className="card-stat">
+            <span className="card-stat-value">${trip.totalBudget}</span>
+            <span className="card-stat-label">Budget</span>
+          </div>
+        </div>
+
+        <div className="card-transport">
+          <span className="transport-badge">
+            {trip.transport.emoji} {trip.transport.name}
+          </span>
+        </div>
+
+        <div className="card-difficulty">
+          <span className="diff-label">Difficulty</span>
+          <div className="diff-bars">{difficultyBars()}</div>
+          <span className="diff-text">{trip.difficulty.label}</span>
+        </div>
+
+        <div className="card-footer">
+          <span className="card-brand">{'\u{1F30D}'} TipRoute</span>
+        </div>
+      </div>
+
+      <div className="trip-card-actions">
+        <button className="cta-button" onClick={handleShare}>
+          Share Trip Card
+        </button>
+        <Link to="/planner" className="secondary-button">Plan Another</Link>
+      </div>
+    </div>
+  )
+}
